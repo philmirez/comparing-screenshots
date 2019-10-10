@@ -1,0 +1,24 @@
+{
+  "name": "comparing-buffers",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/philmirez/comparing-buffers.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/philmirez/comparing-buffers/issues"
+  },
+  "homepage": "https://github.com/philmirez/comparing-buffers#readme",
+  "dependencies": {
+    "pixelmatch": "^5.1.0",
+    "pngjs": "^3.4.0",
+    "puppeteer": "^1.20.0"
+  }
+}
