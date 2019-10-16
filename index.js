@@ -1,84 +1,79 @@
 const puppeteer = require('puppeteer')
 const pixelmatch = require('pixelmatch')
 const PNG = require('pngjs').PNG
+const fs = require('fs')
 
-async function takeScreenshot(options) {
-  const browser = await puppeteer.launch({
-    defaultViewport: null
-  });
+function getTime(startTime) {
+  return Date.now() - startTime
+}
 
-  const page = await browser.newPage()
-  await page.setViewport({
-    height: 960,
-    width: 640
-  })
+async function takeScreenshot(page, options) {
+  const startTime = Date.now()
   await page.goto(
     options.url,
-    { waitUntil: 'networkidle2' }
+    {
+      waitUntil: 'networkidle2'
+    }
   )
-  const bodyHandle = await page.$('body');
-  const { width, height } = await bodyHandle.boundingBox();
-  const screenshot = await page.screenshot({
-    path: options.path || null,
-    clip: {
-      x: 0,
-      y: 0,
-      width: Math.round(width),
-      height: Math.round(height)
-    },
-    type: 'png'
-  });
+  const totalTime = getTime(startTime)
 
-  await bodyHandle.dispose();
-  await browser.close();
+  await page.setViewport({
+    height: options.height,
+    width: options.width
+  })
+  const data = await page.screenshot({
+    path: options.path || null,
+    fullPage: true
+  })
 
   return {
-    data: screenshot,
-    width: Math.round(width),
-    height: Math.round(height)
-  };
+    data: data,
+    time: totalTime
+  }
+}
+
+async function takeScreenshots(stagingOptions, prodOptions) {
+  const browser = await puppeteer.launch()
+  const page = await browser.newPage()
+  const staging = await takeScreenshot(page, stagingOptions)
+  const prod = await takeScreenshot(page, prodOptions)
+
+  await browser.close();
+
+  return [
+    staging,
+    prod
+  ]
 }
 
 const run = async function () {
   try {
-    const options1 = {
-      path: 'screenshot1.png',
-      url: 'https://www.healthcentral.com'
+    const height = 900
+    const width = 640
+    const diff = new PNG({width, height})
+    const stagingOptions = {
+      path: 'stagingScreenshot.png',
+      url: 'https://www.google.com/search?q=cat',
+      height,
+      width
     }
-    const options2 = {
-      path: 'screenshot2.png',
-      url: 'https://www.healthcentral.com'
+    const prodOptions = {
+      path: 'prodScreenshot.png',
+      url: 'https://www.google.com/search?q=cat',
+      height,
+      width
     }
+    const [stagingScreenshot, prodScreenshot] = await takeScreenshots(stagingOptions, prodOptions)
+    const allocationSize = height * width * 4
+    const stagingBuff = Buffer.alloc(allocationSize)
+    const prodBuff = Buffer.alloc(allocationSize)
+    stagingBuff.fill(stagingScreenshot.data)
+    prodBuff.fill(prodScreenshot.data)
 
-
-    const [screenshot1, screenshot2] = await Promise.all([takeScreenshot(options1), takeScreenshot(options2)])
-    console.log('screenshot1', screenshot1)
-    console.log('screenshot1 length', screenshot1.data.length)
-    console.log('screenshot2', screenshot2)
-    console.log('screenshot2 length', screenshot2.data.length)
-
-    const maxHeight = Math.max(screenshot1.height, screenshot2.height)
-    const maxWidth = Math.max(screenshot1.width, screenshot2.width)
-    console.log('maxHeight', maxHeight)
-    console.log('maxWidth', maxWidth)
-    const totalPixels = maxHeight * maxWidth
-    const diff = new PNG({ width: maxWidth, height: maxHeight })
-
-    const allocationSize = Math.max(screenshot1.data.length, screenshot2.data.length, diff.data.length)
-    const buff1 = Buffer.alloc(allocationSize)
-    const buff2 = Buffer.alloc(allocationSize)
-    const buffDiff = Buffer.alloc(allocationSize)
-    buff1.fill(screenshot1.data)
-    buff2.fill(screenshot2.data)
-    console.log('buff1 length', buff1.length)
-    console.log('buff2 length', buff2.length)
-
-
-    console.log('diff.data length', diff.data.length)
-    const numDiffPixels = pixelmatch(buff1, buff2, buffDiff, maxWidth, maxHeight, { threshold: 0.2 })
-    console.log('numDiffPixels', numDiffPixels)
+    const numDiffPixels = pixelmatch(stagingBuff, prodBuff, diff.data, width, height, { threshold: 0.1 })
+    fs.writeFileSync('diff.png', PNG.sync.write(diff))
     console.log('Results', JSON.stringify({
-      diffScore: numDiffPixels / totalPixels
+      diffScore: numDiffPixels / (height * width)
     }))
   } catch (error) {
     console.error(error)
