@@ -45,7 +45,7 @@ const run = async function () {
   try {
     const stagingOptions = {
       path: 'stagingScreenshot.png',
-      url: 'https://www.google.com/search?q=cat'
+      url: 'https://www.bing.com/search?q=cat'
     }
     const prodOptions = {
       path: 'prodScreenshot.png',
@@ -54,8 +54,14 @@ const run = async function () {
     const [stagingScreenshot, prodScreenshot] = await takeScreenshots(stagingOptions, prodOptions)
     const prodPng = PNG.sync.read(prodScreenshot.data)
     const stgPng = PNG.sync.read(stagingScreenshot.data)
-    const diff = new PNG({width: prodPng.width, height: prodPng.height})
-    const numDiffPixels = pixelmatch(prodPng.data, stgPng.data, diff.data, prodPng.width, prodPng.height, { threshold: 0.1 })
+    const maxWidth = Math.max(stgPng.width, prodPng.width)
+    const maxHeight = Math.max(stgPng.height, prodPng.height)
+    const stgBuffer = Buffer.alloc(maxHeight * maxWidth * 4)
+    const prodBuffer = Buffer.alloc(maxHeight * maxWidth * 4)
+    stgBuffer.fill(stgPng.data)
+    prodBuffer.fill(prodPng.data)
+    const diff = new PNG({width: maxWidth, height: maxHeight})
+    const numDiffPixels = pixelmatch(prodBuffer, stgBuffer, diff.data, maxWidth, maxHeight, { threshold: 0.1 })
 
     fs.writeFileSync('diff.png', PNG.sync.write(diff))
 
