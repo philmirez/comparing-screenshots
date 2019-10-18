@@ -16,11 +16,6 @@ async function takeScreenshot(page, options) {
     }
   )
   const totalTime = getTime(startTime)
-
-  await page.setViewport({
-    height: options.height,
-    width: options.width
-  })
   const data = await page.screenshot({
     path: options.path || null,
     fullPage: true
@@ -48,32 +43,24 @@ async function takeScreenshots(stagingOptions, prodOptions) {
 
 const run = async function () {
   try {
-    const height = 900
-    const width = 640
-    const diff = new PNG({width, height})
     const stagingOptions = {
       path: 'stagingScreenshot.png',
-      url: 'https://www.google.com/search?q=cat',
-      height,
-      width
+      url: 'https://www.google.com/search?q=cat'
     }
     const prodOptions = {
       path: 'prodScreenshot.png',
-      url: 'https://www.google.com/search?q=cat',
-      height,
-      width
+      url: 'https://www.google.com/search?q=cat'
     }
     const [stagingScreenshot, prodScreenshot] = await takeScreenshots(stagingOptions, prodOptions)
-    const allocationSize = height * width * 4
-    const stagingBuff = Buffer.alloc(allocationSize)
-    const prodBuff = Buffer.alloc(allocationSize)
-    stagingBuff.fill(stagingScreenshot.data)
-    prodBuff.fill(prodScreenshot.data)
+    const prodPng = PNG.sync.read(prodScreenshot.data)
+    const stgPng = PNG.sync.read(stagingScreenshot.data)
+    const diff = new PNG({width: prodPng.width, height: prodPng.height})
+    const numDiffPixels = pixelmatch(prodPng.data, stgPng.data, diff.data, prodPng.width, prodPng.height, { threshold: 0.1 })
 
-    const numDiffPixels = pixelmatch(stagingBuff, prodBuff, diff.data, width, height, { threshold: 0.1 })
     fs.writeFileSync('diff.png', PNG.sync.write(diff))
+
     console.log('Results', JSON.stringify({
-      diffScore: numDiffPixels / (height * width)
+      diffScore: numDiffPixels / (prodPng.height * prodPng.width)
     }))
   } catch (error) {
     console.error(error)
