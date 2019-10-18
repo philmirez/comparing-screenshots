@@ -66,7 +66,7 @@ const run = async function () {
     fs.writeFileSync('diff.png', PNG.sync.write(diff))
 
     console.log('Results', JSON.stringify({
-      diffScore: numDiffPixels / (prodPng.height * prodPng.width)
+      diffScore: numDiffPixels / (maxHeight * maxWidth)
     }))
   } catch (error) {
     console.error(error)
